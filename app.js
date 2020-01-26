@@ -1,23 +1,24 @@
-var createError = require("http-errors");
-var express = require("express");
-var path = require("path");
-var cookieParser = require("cookie-parser");
-var logger = require("morgan");
-var session = require("express-session");
-var FileStore = require("session-file-store")(session);
-var passport = require("passport");
-var authenticate = require("./authenticate");
-var config = require("./config");
+const createError = require("http-errors");
+const express = require("express");
+const path = require("path");
+const logger = require("morgan");
+const session = require("express-session");
+const FileStore = require("session-file-store")(session);
+const passport = require("passport");
+const authenticate = require("./authenticate");
+const config = require("./config");
+const cors = require("cors");
 
-var indexRouter = require("./routes/index");
-var usersRouter = require("./routes/users");
-var dishRouter = require("./routes/dishRouter");
-var promoRouter = require("./routes/promoRouter");
-var leaderRouter = require("./routes/leaderRouter");
+const indexRouter = require("./routes/index");
+const usersRouter = require("./routes/users");
+const dishRouter = require("./routes/dishRouter");
+const promoRouter = require("./routes/promoRouter");
+const leaderRouter = require("./routes/leaderRouter");
 const uploadRouter = require("./routes/uploadRouter");
+const favoriteRouter = require("./routes/favoriteRouter");
 const mongoose = require("mongoose");
 
-const Dishes = require("./models/dishes");
+mongoose.Promise = require("bluebird");
 
 const url = config.mongoUrl;
 const connect = mongoose.connect(url);
@@ -31,7 +32,7 @@ connect.then(
   }
 );
 
-var app = express();
+const app = express();
 
 app.all("*", (req, res, next) => {
   if (req.secure) {
@@ -51,7 +52,31 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public")));
 // app.use(cookieParser("12345-67890-09876-54321"));
 
+app.use(
+  session({
+    name: "session-id",
+    secret: "12345-67890-09876-54321",
+    saveUninitialized: false,
+    resave: false,
+    store: new FileStore()
+  })
+);
+
 app.use(passport.initialize());
+app.use(passport.session());
+
+function auth(req, res, next) {
+  console.log(req.user);
+
+  if (!req.user) {
+    var err = new Error("You are not allowed in here!  Come back with an invite.");
+    res.setHeader("WWW-Authenticate", "Basic");
+    err.status = 401;
+    next(err);
+  } else {
+    next();
+  }
+}
 
 app.use("/", indexRouter);
 app.use("/users", usersRouter);
